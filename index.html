@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA DE MONITOREO TÉRMICO - HANGAR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --metal-blue: #1e293b;
+            --emerald-glow: #10b981;
+            --metallic-gradient: linear-gradient(145deg, #0f172a, #1e293b);
+        }
+        body { 
+            font-family: 'Roboto Mono', monospace; 
+            background: radial-gradient(circle at center, #020617 0%, #0f172a 100%);
+            color: #f8fafc;
+        }
+        .metal-card {
+            background: var(--metallic-gradient);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
+        }
+        .metal-card:hover {
+            border-color: var(--emerald-glow);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+        .lcd-text {
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        .header-gradient {
+            background: linear-gradient(90deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%);
+            border-bottom: 2px solid #10b981;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="header-gradient shadow-2xl">
+        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-emerald-500/20 p-3 rounded-lg border border-emerald-500/50">
+                    <i data-lucide="cpu" class="w-10 h-10 text-emerald-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tighter lcd-text text-emerald-400">TUVN MONITORING</h1>
+                    <p class="text-xs text-blue-300 font-bold uppercase tracking-widest">Automatización e instrumentación</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-black/40 px-6 py-3 rounded-xl border border-blue-500/30">
+                <div class="text-right">
+                    <div id="dateDisplay" class="text-[10px] text-blue-400">--/--/----</div>
+                    <div id="timeDisplay" class="text-xl font-bold text-emerald-400 lcd-text">00:00:00</div>
+                </div>
+                <div class="h-10 w-[1px] bg-blue-500/30"></div>
+                <div class="flex flex-col items-center">
+                    <span id="staticDot" class="h-3 w-3 rounded-full bg-red-600 shadow-[0_0_10px_#ef4444]"></span>
+                    <span id="statusText" class="text-[9px] mt-1 text-red-500 font-bold">OFFLINE</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="bg-blue-950/30 border-b border-emerald-500/20 py-2">
+        <div class="container mx-auto px-6 flex justify-between items-center text-[11px]">
+            <div class="flex items-center gap-2">
+                <i data-lucide="terminal" class="w-4 h-4 text-emerald-500"></i>
+                <span class="text-slate-400">DEVELOPER: <span class="text-emerald-400">Stalin-Molina & Manuel Rios</span></span>
+            </div>
+            <div class="text-slate-400 italic">Telemetry System v2.0 - Bluetooth Protocol</div>
+        </div>
+    </div>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <script>
+                const hangares = ["Hangar 1", "Hangar 2", "Hangar 3", "Hangar 4"];
+                hangares.forEach((name, i) => {
+                    const id = i + 1;
+                    document.write(`
+                        <div class="metal-card rounded-2xl overflow-hidden">
+                            <div class="bg-blue-900/40 p-3 border-b border-emerald-500/20 flex justify-between items-center">
+                                <span class="text-xs font-bold text-emerald-400 tracking-widest uppercase">${name}</span>
+                                <i data-lucide="thermometer-snowflake" class="w-4 h-4 text-blue-400"></i>
+                            </div>
+                            <div class="p-6 text-center">
+                                <div class="text-6xl font-bold lcd-text text-white mb-2" id="val${id}">--</div>
+                                <div class="text-[10px] text-emerald-500/70 font-bold">GRADOS CELSIUS (°C)</div>
+                            </div>
+                            <div class="px-2 pb-4">
+                                <canvas id="chart${id}" height="100"></canvas>
+                            </div>
+                        </div>
+                    `);
+                });
+            </script>
+        </div>
+
+        <div class="mt-12 flex flex-col items-center gap-6">
+            <button id="connectBtn" onclick="toggleConnection()" class="group relative px-12 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] overflow-hidden">
+                <div class="absolute inset-0 w-1/4 h-full bg-white/20 skew-x-[-20deg] group-hover:left-full transition-all duration-500 -left-full"></div>
+                <div class="flex items-center gap-3">
+                    <i data-lucide="bluetooth" class="w-6 h-6"></i>
+                    <span>INICIAR VINCULACIÓN</span>
+                </div>
+            </button>
+            <p class="text-[10px] text-slate-500 uppercase tracking-[0.3em]">Protocolo ESP32 Low Energy</p>
+        </div>
+
+    </main>
+
+    <footer class="bg-black/60 border-t border-emerald-500/30 py-4 text-center">
+        <p class="text-[10px] text-slate-500 tracking-widest">© 2026 FACULTAD DE INGENIERÍA - AUTOMATIZACIÓN E INSTRUMENTACIÓN</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // --- RELOJ ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('dateDisplay').textContent = now.toLocaleDateString('es-EC', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+            document.getElementById('timeDisplay').textContent = now.toLocaleTimeString('es-EC', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- GRÁFICOS (Chart.js) ---
+        const charts = {};
+        function initCharts() {
+            for (let i = 1; i <= 4; i++) {
+                const ctx = document.getElementById(`chart${i}`).getContext('2d');
+                charts[`s${i}`] = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array(20).fill(''),
+                        datasets: [{
+                            data: Array(20).fill(null),
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: { 
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#475569', font: { size: 8 } }
+                            }
+                        },
+                        animation: false
+                    }
+                });
+            }
+        }
+        initCharts();
+
+        function updateChartData(sensorId, value) {
+            const chart = charts[sensorId];
+            chart.data.datasets[0].data.push(value);
+            chart.data.datasets[0].data.shift();
+            chart.update();
+        }
+
+        // --- LÓGICA BLUETOOTH ---
+        const serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        let bluetoothDevice, bleCharacteristic;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const statusText = document.getElementById('statusText');
+        const staticDot = document.getElementById('staticDot');
+
+        async function toggleConnection() {
+            if (bluetoothDevice?.gatt.connected) disconnect();
+            else connect();
+        }
+
+        async function connect() {
+            try {
+                connectBtn.innerText = "BUSCANDO...";
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'TUVN_Termometros' }],
+                    optionalServices: [serviceUuid]
+                });
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(serviceUuid);
+                bleCharacteristic = await service.getCharacteristic(characteristicUuid);
+                await bleCharacteristic.startNotifications();
+                bleCharacteristic.addEventListener('characteristicvaluechanged', handleData);
+                updateUI(true);
+            } catch (error) {
+                console.error(error);
+                updateUI(false);
+            }
+        }
+
+        function handleData(event) {
+            const jsonString = new TextDecoder().decode(event.target.value);
+            try {
+                const data = JSON.parse(jsonString);
+                for (let i = 1; i <= 4; i++) {
+                    const val = data[`s${i}`];
+                    if (val !== undefined) {
+                        document.getElementById(`val${i}`).innerText = val.toFixed(1);
+                        updateChartData(`s${i}`, val);
+                    }
+                }
+            } catch (e) { console.error("Data Error", e); }
+        }
+
+        function updateUI(connected) {
+            if (connected) {
+                connectBtn.innerText = "DESCONECTAR";
+                connectBtn.className = "px-12 py-4 bg-red-900/50 border border-red-500 text-red-500 font-bold rounded-lg transition-all";
+                statusText.innerText = "ONLINE";
+                statusText.className = "text-[9px] mt-1 text-emerald-400 font-bold";
+                staticDot.className = "h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+            } else {
+                location.reload(); // Reset simple
+            }
+        }
+
+        function disconnect() {
+            if (bluetoothDevice?.gatt.connected) bluetoothDevice.gatt.disconnect();
+        }
+    </script>
+</body>
+</html>
